@@ -1,0 +1,7 @@
+matplotlib
+numpy
+pandas
+scikit-learn
+tqdm
+tabulate
+PyQt5

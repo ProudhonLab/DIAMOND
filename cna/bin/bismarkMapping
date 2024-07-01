@@ -1,0 +1,27 @@
+#!/bin/bash
+# module load bismark/0.24.2 
+# or conda with bismark in the env 
+
+sample_id=$1
+read=$2
+params_tempDir=$3
+genome=$4
+
+bismark \
+--fasta \
+--ambig_bam \
+--ambiguous \
+--unmapped \
+--gzip \
+--rg_tag \
+--rg_id ${sample_id} \
+--non_directional \
+--rg_sample ${sample_id} \
+--non_bs_mm \
+--parallel 1 \
+--temp_dir ${params_tempDir} \
+-N 1 \
+-L 15 \
+--genome ${genome}\
+--single_end  ${read} 
+

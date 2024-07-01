@@ -1,0 +1,117 @@
+##################
+# June 8th, 2023 #
+##################
+# We want to do classifications based on the corrected data with LIMMA
+
+# !!! change this !!!
+user = "kdasilva"
+# !!!
+
+workDir_d = paste0("/run/user/1001/gvfs/sftp:host=genossh.genouest.org,user=",user,"/scratch/",user,"/limma_data_classification/discovery/inputs/")
+workDir_v = paste0("/run/user/1001/gvfs/sftp:host=genossh.genouest.org,user=",user,"/scratch/",user,"/limma_data_classification/validation/inputs/")
+
+##############
+# CORRECTION #
+##############
+
+library(limma)
+
+c1_infos = read.csv(paste0("/run/user/1001/gvfs/sftp:host=genossh.genouest.org,user=",user,"/groups/proudhon_lab/projects/l1pa_meth/0_data/c1_plasma_samples_info.csv"))
+rownames(c1_infos) = c1_infos$sample
+c1_infos$biological_class[which(c1_infos$biological_class=="gastric_cancer_plasma")] = "early_gastric_cancer_plasma"
+c1_infos$biological_class[which(c1_infos$biological_class=="ovarian_cancer_plasma" & c1_infos$stage=="3")] = "early_ovarian_cancer_plasma"
+c1_infos$biological_class[which(c1_infos$biological_class=="ovarian_cancer_plasma" & is.na(c1_infos$stage))] = "ovarian_cancer_plasma_ND"
+
+c1_methyl = read.csv(paste0("/run/user/1001/gvfs/sftp:host=genossh.genouest.org,user=",user,"/groups/proudhon_lab/projects/l1pa_meth/4_methylation_data/default_scores/10_largest/cg_methyl.c1.csv"))
+c1_methyl = c1_methyl[,-1]
+rownames(c1_methyl) = c1_methyl$sample
+c1_methyl = c1_methyl[rownames(c1_infos),-grep("L1HS_15",colnames(c1_methyl))]
+c1_methyl$biological_class = c1_infos$biological_class
+c1_methyl = c1_methyl[-which(is.na(c1_infos$age)),]
+c1_infos = c1_infos[-which(is.na(c1_infos$age)),]
+
+c2_infos = read.csv(paste0("/run/user/1001/gvfs/sftp:host=genossh.genouest.org,user=",user,"/groups/proudhon_lab/projects/l1pa_meth/0_data/c2_plasma_samples_info.csv"))
+rownames(c2_infos) = c2_infos$sample
+c2_infos$biological_class[which(c2_infos$biological_class=="ovarian_cancer_plasma" & c2_infos$stage=="3")] = "early_ovarian_cancer_plasma"
+
+c2_methyl = read.csv(paste0("/run/user/1001/gvfs/sftp:host=genossh.genouest.org,user=",user,"/groups/proudhon_lab/projects/l1pa_meth/4_methylation_data/default_scores/10_largest/cg_methyl.c2.csv"))
+c2_methyl = c2_methyl[,-1]
+rownames(c2_methyl) = c2_methyl$sample
+c2_methyl = c2_methyl[rownames(c2_infos),-grep("L1HS_15",colnames(c2_methyl))]
+c2_methyl$biological_class = c2_infos$biological_class
+c2_methyl = c2_methyl[-which(is.na(c2_infos$age)),]
+c2_infos = c2_infos[-which(is.na(c2_infos$age)),]
+
+all_methyl = rbind(c1_methyl,c2_methyl)
+all_infos = rbind(c1_infos,c2_infos)
+all_methyl_corrected = all_methyl
+all_methyl_corrected[,3:32] = t(removeBatchEffect(t(all_methyl[,3:32]), batch = NULL, covariates = all_infos$age))
+
+#############
+# DISCOVERY #
+#############
+
+c1_methyl_corrected = droplevels(all_methyl_corrected[1:nrow(c1_methyl),])
+
+healthy_methyl = c1_methyl_corrected[which(c1_methyl_corrected$biological_class=="healthy_plasma"),]
+
+# Healthy vs Cancer
+
+methyl_cancer = c1_methyl_corrected[which(c1_methyl_corrected$biological_class!="healthy_plasma"),]
+methyl_cancer$biological_class = "cancer_plasma"
+m = rbind(healthy_methyl,methyl_cancer)
+write.csv(m, paste0(workDir_d,"discovery_cohort.healthy_vs_cancer.methylation.no_l1hs15.csv"), row.names=FALSE)
+
+# Healthy vs each Cancer
+
+for (cancer in unique(c1_methyl_corrected$biological_class)) {
+  if (cancer != "healthy_plasma") {
+    df = rbind(healthy_methyl,c1_methyl_corrected[which(c1_methyl_corrected$biological_class==cancer),])
+    cancer_type = gsub(" ","",cancer)
+    cancer_type = gsub("\\+","p",cancer_type)
+    cancer_type = gsub("0","z",cancer_type)
+    write.csv(df, paste0(workDir_d,"discovery_cohort.healthy_vs_",cancer_type,".methylation.no_l1hs15.csv"), row.names=FALSE)
+  }
+}
+
+# All OVC (M0 and M+ and ND)
+
+methyl_cancer = c1_methyl_corrected[grep("ovarian_cancer_plasma",c1_methyl_corrected$biological_class),]
+methyl_cancer$biological_class = "ovarian_cancer_plasma"
+m = rbind(healthy_methyl,methyl_cancer)
+write.csv(m, paste0(workDir_d,"discovery_cohort.healthy_vs_all_ovarian_cancer_plasma.methylation.no_l1hs15.csv"), row.names=FALSE)
+
+
+##############
+# VALIDATION #
+##############
+
+c2_methyl_corrected = droplevels(all_methyl_corrected[(nrow(c1_methyl)+1):nrow(all_methyl_corrected),])
+
+healthy_methyl = c2_methyl_corrected[which(c2_methyl_corrected$biological_class=="healthy_plasma"),]
+
+# Healthy vs Cancer
+
+methyl_cancer = c2_methyl_corrected[which(c2_methyl_corrected$biological_class!="healthy_plasma"),]
+methyl_cancer$biological_class = "cancer_plasma"
+m = rbind(healthy_methyl,methyl_cancer)
+write.csv(m, paste0(workDir_v,"validation_cohort.healthy_vs_cancer.methylation.no_l1hs15.csv"), row.names=FALSE)
+
+# Healthy vs each Cancer
+
+for (cancer in unique(c2_methyl_corrected$biological_class)) {
+  if (cancer != "healthy_plasma") {
+    df = rbind(healthy_methyl,c2_methyl_corrected[which(c2_methyl_corrected$biological_class==cancer),])
+    cancer_type = gsub(" ","",cancer)
+    cancer_type = gsub("\\+","p",cancer_type)
+    cancer_type = gsub("0","z",cancer_type)
+    write.csv(df, paste0(workDir_v,"validation_cohort.healthy_vs_",cancer_type,".methylation.no_l1hs15.csv"), row.names=FALSE)
+  }
+}
+
+# All OVC (M0 and M+ and ND)
+
+methyl_cancer = c2_methyl_corrected[grep("ovarian_cancer_plasma",c2_methyl_corrected$biological_class),]
+methyl_cancer$biological_class = "ovarian_cancer_plasma"
+m = rbind(healthy_methyl,methyl_cancer)
+write.csv(m, paste0(workDir_v,"validation_cohort.healthy_vs_all_ovarian_cancer_plasma.methylation.no_l1hs15.csv"), row.names=FALSE)
