@@ -1,1 +1,1 @@
-# psL1_Meth
+# DIAMOND
