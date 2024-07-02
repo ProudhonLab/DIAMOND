@@ -7,7 +7,7 @@ params.condaPath= "${workflow.projectDir}/environment.yml"
 
 
 process filteringMapping {
-  conda '${params.condaPath}'
+  conda "${params.condaPath}"
   executor = 'slurm'
   memory '25 GB'
   maxForks 9
@@ -31,7 +31,7 @@ process filteringMapping {
 
 
 process IntervalArm {
-  conda '${params.condaPath}'
+  conda "${params.condaPath}"
   executor = 'slurm'
   memory '3 GB'
   maxForks 8
@@ -78,7 +78,7 @@ process fuse {
 }
 
 process Zscore {
-  conda '${params.condaPath}'
+  conda "${params.condaPath}"
   executor = 'slurm'
   	publishDir "${params.dirOutput}" , mode: 'copy', overwrite: true, pattern: '*.csv'
 	input:
