@@ -3,7 +3,7 @@
 params.sampleListpath = "${workflow.projectDir}/listSample.csv" // a csv file with Sample Id and if the sample is a healthy control or not
 params.dirOutput= "${workflow.projectDir}/Zscore"
 params.dirInput = "${workflow.projectDir}/raw"
-params.condaPath=  = "${workflow.projectDir}/environment.yml"
+params.condaPath= "${workflow.projectDir}/environment.yml"
 
 
 process filteringMapping {
@@ -35,7 +35,6 @@ process IntervalArm {
   executor = 'slurm'
   memory '3 GB'
   maxForks 8
-  publishDir  '/groups/proudhon_lab/kvongrafenst/Datapsl1_meth/cnapsly1_meth_v2/inter/densityArm', mode: 'copy', overwrite: true
 
   input:
    tuple val(sample_id) , val(ctrlStatus), val(amp_id),  path(x)
