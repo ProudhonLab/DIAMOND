@@ -1,4 +1,4 @@
-name: /scratch/kvongrafenst/CNApipe
+name: CNApipe
 channels:
   - conda-forge
   - bioconda
@@ -64,7 +64,7 @@ dependencies:
   - bwidget=1.9.14=ha770c72_1
   - bzip2=1.0.8=h7f98852_4
   - c-ares=1.18.1=h7f98852_0
-  - ca-certificates=2024.2.2=hbcca054_0
+  - ca-certificates=2024.6.2=hbcca054_0
   - cairo=1.16.0=ha61ee94_1014
   - curl=8.1.2=h409715c_0
   - expat=2.5.0=h27087fc_0
@@ -128,7 +128,7 @@ dependencies:
   - make=4.3=hd18ef5c_1
   - ncurses=6.3=h27087fc_1
   - oniguruma=6.9.8=h166bdaf_0
-  - openssl=3.3.0=h4ab18f5_3
+  - openssl=3.3.1=h4ab18f5_1
   - pandoc=2.19.2=h32600fe_1
   - pango=1.50.12=hd33c08f_1
   - pcre2=10.40=hc3806b6_0
@@ -282,6 +282,7 @@ dependencies:
   - r-yaml=2.3.7=r42h133d619_0
   - r-yulab.utils=0.0.6=r42hc72bb7e_0
   - readline=8.1.2=h0f457ee_0
+  - samtools=1.6=hc3601fc_10
   - sed=4.8=he412f7d_0
   - setuptools=67.3.1=pyhd8ed1ab_0
   - sysroot_linux-64=2.12=he073ed8_15
@@ -309,4 +310,4 @@ dependencies:
   - zipp=3.13.0=pyhd8ed1ab_0
   - zlib=1.2.13=h166bdaf_4
   - zstd=1.5.2=h3eb15da_6
-prefix: /scratch/kvongrafenst/CNApipe
+prefix: CNApipe
