@@ -1,12 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import argparse # arguments management
 import pandas as pd # handle dataframes
 import os # creating output directories
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import StackingClassifier
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm # progress bar
 import numpy as np
-from imblearn.over_sampling import SMOTE # oversampling
-from imblearn.under_sampling import RandomUnderSampler # undersampling
+
 from sklearn.metrics import (accuracy_score,
                              f1_score,
                              auc,
@@ -64,13 +67,13 @@ def compute_confidence_intervals(arr, confidence_level=0.95):
 
 def print_sensitivity_specificity_table(tprs, labels, output_dir):
     """
- Print a table of sensitivity and specificity values to a CSV file.
-
- Parameters:
- tprs (list): A list of true positive rates.
- labels (list): A list of labels corresponding to the true positive rates.
- output_dir (str): The directory where the output CSV file will be written.
- """
+     Print a table of sensitivity and specificity values to a CSV file.
+    
+     Parameters:
+     tprs (list): A list of true positive rates.
+     labels (list): A list of labels corresponding to the true positive rates.
+     output_dir (str): The directory where the output CSV file will be written.
+     """
     with open(f'{output_dir}/sensitivity_specificity.csv', 'w') as f:
         f.write(f"biological_class,specificity,sensitivity,sensitivity_95CI_lower,sensitivity_95CI_upper\n")
 
@@ -89,13 +92,13 @@ def print_sensitivity_specificity_table(tprs, labels, output_dir):
 
 def print_scores_to_csv(accuracies, f1s, tprs, recalls, mean_fpr, roc_aucs, pr_aucs, labels, output_dir):
     """
- Print prediction results to a CSV file.
-
- Parameters:
- d_predictions (dict): A dictionary of prediction results.
- labels (list): A list of labels corresponding to the prediction results.
- output_dir (str): The directory where the output CSV file will be written.
- """
+     Print prediction results to a CSV file.
+    
+     Parameters:
+     d_predictions (dict): A dictionary of prediction results.
+     labels (list): A list of labels corresponding to the prediction results.
+     output_dir (str): The directory where the output CSV file will be written.
+     """
     with open(f'{output_dir}/scores.csv', 'w') as f:
         header = "metric,score,lower_ci,upper_ci\n"
         f.write(header)
@@ -164,8 +167,7 @@ def print_full_predictions_to_csv(f_predictions, output_dir):
     Parameters:
     f_predictions (dict): A dictionary of full prediction results.
     output_dir (str): The directory where the output CSV file will be written.
-    """    
-    # print
+    """  
     full_data=pd.DataFrame(f_predictions).T
     full_data.to_csv(f'{output_dir}/full_predictions.csv',index=False)
 
@@ -181,47 +183,18 @@ def print_blind_test_to_csv(blind_test, output_dir):
     full_data.to_csv(f'{output_dir}/blind_test.csv',index=False)
 
 
-
-def print_importances_to_csv(d_features_imp, output_dir):
-    """
-    Print importances of the classification features to a CSV file
-
-Parameters:
-d_features_imp (dict): A dictionary with the different scores by a key that is the features
-output_dir (str): The directory where the output file  will be written.
-"""
-    # compute mean
-    for feature in d_features_imp.keys():
-        d_features_imp[feature]["mean"] = np.mean(d_features_imp[feature]["scores"])
-        d_features_imp[feature]["median"] = np.median(d_features_imp[feature]["scores"])
-        d_features_imp[feature]["stdev"] = np.std(d_features_imp[feature]["scores"])
-        d_features_imp[feature]["total_score"] = sum(d_features_imp[feature]["scores"])
-        d_features_imp[feature]["mean_rank"] = np.mean(d_features_imp[feature]["ranks"])
-        del d_features_imp[feature]["scores"]
-        del d_features_imp[feature]["ranks"]
-    # print
-    with open(f'{output_dir}/features_importance.csv', 'w') as f:
-        ## header
-        header="feature,mean,median,stdev,total_score,mean_rank\n"
-        f.write(header)
-        ## body
-        for feature in d_features_imp:
-            line = f"{feature},{d_features_imp[feature]['mean']},{d_features_imp[feature]['median']},{d_features_imp[feature]['stdev']},{d_features_imp[feature]['total_score']},{d_features_imp[feature]['mean_rank']}\n"
-            f.write(line)
-
 def plot_roc_curve(tprs, mean_fpr, aucs, labels, output_dir, color_table_path):
     """
-Plot the ROC curve.
-
-Parameters:
-tprs (list): A list of true positive rates.
-mean_fpr (numpy array): The mean false positive rate.
-aucs (list): A list of AUC values.
-labels (list): A list of labels corresponding to the ROC curve.
-output_dir (str): The directory where the output plot will be written.
-color_table_path (str): The path to the color table CSV file.
-"""
-
+    Plot the ROC curve.
+    
+    Parameters:
+    tprs (list): A list of true positive rates.
+    mean_fpr (numpy array): The mean false positive rate.
+    aucs (list): A list of AUC values.
+    labels (list): A list of labels corresponding to the ROC curve.
+    output_dir (str): The directory where the output plot will be written.
+    color_table_path (str): The path to the color table CSV file.
+    """
     fig, ax = plt.subplots(figsize=(7, 6.5), constrained_layout=True)
     ax.plot([0, 1], [0, 1], linestyle="--", lw=2, color="r", label="Chance", alpha=0.8)
 
@@ -366,41 +339,27 @@ def plot_pr_curve(recalls, mean_fpr, aucs, labels, output_dir, color_table_path)
         )
     plt.savefig(os.path.join(output_dir, "pr_curve_ci.png"), dpi=FIG_DPI)
 
-def run_classification(discovery_set_file, validation_set_file, output_dir, runs, balance_method, color_table_path,blind_size,minimumKsample2beInTrain):
+def run_classification(discovery_set_file, output_dir, runs, color_table_path,blind_size,minimumKsample2beInTrain):
     """
     Run the classification pipeline.
 
-   Parameters:
-   discovery_set_file (str): The path to the discovery set CSV file.
-   validation_set_file (str): The path to the validation set CSV file.
-   output_dir (str): The directory where the output files will be written.
-   runs (int): The number of runs to perform.
-   color_table_path (str): The path to the color table CSV file.
-    
-   WARNING: both data_file must be a csv with control class (e.g. healthy plasma) before
-    case class (e.g. ovarian cancer plasma) in order to have correct tn, fp,
-    fn, tp order (see sklearn confusion matrix documentation).
+    Parameters:
+    discovery_set_file (str): The path to the discovery set CSV file.
+    output_dir (str): The directory where the output files will be written.
+    runs (int): The number of runs to perform.
+    color_table_path (str): The path to the color table CSV file.
+
+    WARNING: Both data files must be CSVs with the control class (e.g., healthy plasma) before the case class (e.g., ovarian cancer plasma) to have the correct TN, FP, FN, TP order (see sklearn confusion matrix documentation).
     """
 
-    # Load discovery set and extract infos
+    # Load discovery set and extract information
     discovery_data = pd.read_csv(discovery_set_file)
-    features = discovery_data.columns[2:]
-    _, labels = pd.factorize(discovery_data['biological_class'])
-    y=  discovery_data['biological_class']
-    n_class = len(discovery_data["biological_class"].unique())
-    if args.force_binarization :
-        n_class=2
-        biological_labels=labels
-        labels=["cancer_plasma", "healthy_plasma"]  # Define labels for healthy and cancer plasma
+    features = discovery_data.columns[2:]  # Extract feature columns
+    y = discovery_data["biological_class"]  # Extract target variable
+    _, labels = pd.factorize(y)  # Factorize target variable
+    labelsHD_Cancer = ["healthy_plasma", "cancer_plasma"]  # Define labels for healthy and cancer plasma
 
-    # Load validation set (if any)
-    if validation_set_file:
-        validation_data = pd.read_csv(validation_set_file)
-        ## check consistency of the features
-        if not np.array_equal(validation_data.columns[2:], features):
-            print("Features aren't identical between train and test data.")
-
-    # create output directory
+    # Create output directory if it doesn't exist
     if output_dir:
         if not os.path.isdir(output_dir):
             try:
@@ -409,28 +368,22 @@ def run_classification(discovery_set_file, validation_set_file, output_dir, runs
                 print(f"Creation of directory '{output_dir}' failed.")
 
     # Initialize output dictionaries
-    data = validation_data if validation_set_file else discovery_data
-    ## prediction probabilities and classes
-    d_predictions = {}
-    f_predictions = {} # full prediction
-    for i,sample in enumerate(data["sample"]):
+    data = discovery_data
+    d_predictions = {}  # Dictionary to store prediction results
+    f_predictions = {}  # Dictionary to store full prediction results
+    for i, sample in enumerate(data["sample"]):
         d_predictions[sample] = {}
         d_predictions[sample]['biological_class'] = data.iloc[i].loc['biological_class']
         d_predictions[sample]['n'] = 0
 
         f_predictions[sample] = {}
-        f_predictions[sample]['Sample_ID']=sample
+        f_predictions[sample]['Sample_ID'] = sample
 
-        for j in range(n_class):
-            d_predictions[sample][f'proba_{labels[j]}'] = 0
-            d_predictions[sample][f'pred_{labels[j]}'] = 0
-    ## features importance
-    d_features_imp = {}
-    for feature in features:
-        d_features_imp[feature] = {}
-        d_features_imp[feature]["scores"] = []
-        d_features_imp[feature]["ranks"] = []
-    ## roc and pr curves info
+        for j in range(2):
+            d_predictions[sample][f'proba_{labelsHD_Cancer[j]}'] = 0
+            d_predictions[sample][f'pred_{labelsHD_Cancer[j]}'] = 0
+
+    # Initialize variables to store performance metrics
     mean_fpr = np.linspace(0, 1, 100)
     tprs = {}
     recalls = {}
@@ -440,215 +393,209 @@ def run_classification(discovery_set_file, validation_set_file, output_dir, runs
     f1s = []
     if blind_size > 0 :
         blind_test = {}
-    if n_class == 2:
-        tprs[0] = []
-        recalls[0] = []
-        roc_aucs[0] = []
-        pr_aucs[0] = []
-    else:
-        for i in range(n_class):
-            tprs[i] = []
-            recalls[i] = []
-            roc_aucs[i] = []
-            pr_aucs[i] = []
+    
+    
+    tprs[0] = []
+    recalls[0] = []
+    roc_aucs[0] = []
+    pr_aucs[0] = []
+    
+    cw =  None
 
-    # Create a random forest classifier
-    cw = "balanced_subsample" if balance_method=="class_weight" else None
-    clf = RandomForestClassifier(n_estimators=args.number_trees, criterion='gini',class_weight=cw)
 
-    # Multiple runs
 
+
+
+    # Perform multiple runs
     for run_i in tqdm(range(0, runs)):
-
-        if not validation_set_file:
-            if balance_method=="undersampling":
-                new_data, new_y = RandomUnderSampler(random_state=run_i).fit_resample(data, y)
-            else:
-                new_data = data
-                new_y = y
-            # split train/test sets
-            X_train, X_test, y_train, y_test = train_test_split(new_data, new_y, test_size=args.test_data_size, stratify=new_y)
-
-            _,run_lab= pd.factorize(new_y)
-            print(new_y)
-            print(run_lab)
-
-
-            if minimumKsample2beInTrain > 0  and blind_size > 0:
-                rejected_label=[]
-                for label in run_lab :
-                    count=len(new_y[new_y==label])
-                    if count < minimumKsample2beInTrain :
-                        print(f'{label} have been rejected from training set and moved to test set due to insufisent amount of sample. \n Nb sample={count} ; Minimum threshold {minimumKsample2beInTrain}')
-                        run_lab=np.delete(run_lab,np.isin(run_lab,label))
-                        rejected_label.append(label)
+        # Split data into training and testing sets
+      
+       
+        new_y = y
+        _,labels=pd.factorize(new_y)
+        X_train = discovery_data
+        
+        # Split healthy plasma data into training and testing sets
+        y_train_hd, y_test_hd, X_train_hd, X_test_hd = train_test_split(new_y[new_y == "healthy_plasma"], X_train[new_y == "healthy_plasma"], test_size=0.33, random_state=None)
+        
+        # Split healthy plasma data into training sets for experts models and the stack
+        y_train_expert_hd, y_train_stack_hd, X_train_expert_hd, X_train_stack_hd = train_test_split(y_train_hd, X_train_hd, test_size=0.5, random_state=None)
+        
+        # Initialize list to store classifiers
+        classifiers = []
+        
+        # Initialize variables to store training stack cancer data
+        X_stack_cancer_train = pd.DataFrame()
+        y_stack_cancer_train = pd.Series()
+        X_stack_cancer_test = pd.DataFrame()
+        y_stack_cancer_test = pd.Series()
 
 
-            # If blind size > 0 : remove X categories of cancers from training set
+        # If minimumKsample2beInTrain > 0 : remove from training set every categories 
+        # cancer that have less than minimumKsample2beInTrain value
 
-            if blind_size > 0 :
-                drop_index=np.random.choice(run_lab[1:(len(run_lab)+1)],blind_size,replace=False)
-                run_lab=np.delete(run_lab,np.isin(run_lab,drop_index))
+        if minimumKsample2beInTrain > 0 :
+            rejected_label=[]
+            for label in labels :
+                count=len(new_y[new_y==label])
+                if count < minimumKsample2beInTrain :
+                    print(f'{label} have been rejected from training set and moved to test set due to insufisent amount of sample. \n Nb sample={count} ; Minimum threshold {minimumKsample2beInTrain}')
+                    labels=np.delete(labels,np.isin(labels,label))
+                    rejected_label.append(label)
 
-                blind_test[run_i]={}
-                blind_test[run_i]['run']=run_i
 
-                ## because there two source of cancer cat removing (blind test or minimumKsample2beInTrain), here labs need to be recomputed, otherwise some data is lost
-                _,all_lab=pd.factorize(y)
-                seen_labs=np.delete(all_lab,np.isin(all_lab,run_lab,invert=True))
-                blind_labs=np.delete(all_lab,np.isin(all_lab,run_lab))
-                for label in seen_labs :
-                    blind_test[run_i][label]='seen'
-                for drop_i in blind_labs :
-                    blind_test[run_i][drop_i]='blind'
+        # If blind size > 0 : remove X categories of cancers from training set
 
-            if minimumKsample2beInTrain > 0 and len(rejected_label) > 0 :
-                for label in rejected_label :
-                    X_test=pd.concat([X_test,X_train[y_train==label]])
-                    y_test=np.concatenate([y_test,y_train[y_train==label]])
-                    X_train=X_train[y_train!=label]
-                    y_train=y_train[y_train!=label]
-            if blind_size > 0 :
-                for drop_i in drop_index :
-                    X_test=pd.concat([X_test,X_train[y_train==drop_i]])
-                    y_test=np.concatenate([y_test,y_train[y_train==drop_i]])
-                    X_train=X_train[y_train!=drop_i]
-                    y_train=y_train[y_train!=drop_i]
+        if blind_size > 0 :
+            drop_index=np.random.choice(labels[1:len(labels)+1],blind_size,replace=False)
+            labels=np.delete(labels,np.isin(labels,drop_index))
+
+            blind_test[run_i]={}
+            blind_test[run_i]['run']=run_i
+
+            ## because there two source of cancer cat removing (blind test or minimumKsample2beInTrain), here labs need to be recomputed, otherwise some data is lost
+            _,all_lab=pd.factorize(y)
+            seen_labs=np.delete(all_lab,np.isin(all_lab,labels,invert=True))
+            blind_labs=np.delete(all_lab,np.isin(all_lab,labels))
+            for label in seen_labs :
+                blind_test[run_i][label]='seen'
+            for drop_i in blind_labs :
+                blind_test[run_i][drop_i]='blind'
+
             
 
-
-        else:
-            if balance_method=="undersampling":
-                new_data, new_y = RandomUnderSampler(random_state=run_i).fit_resample(discovery_data, y)
-            elif balance_method=="fakeDiscovery":
-                new_data, dump_x_test, new_y, dump_y_test=train_test_split(discovery_data, y, test_size=args.test_data_size, stratify=y,random_state=run_i)
-
-            else:
-                new_data = discovery_data
-                new_y = y
-            X_train = new_data
-            X_test = validation_data
-            y_train = new_y
-            y_test, _ = pd.factorize(validation_data['biological_class'])
-
-        # training
-        if args.force_binarization :
-            y_train= (y_train == "healthy_plasma").astype(int)
-            y_test= (y_test == "healthy_plasma").astype(int)
-        clf.fit(X_train[features], y_train)
-        # get prediction probabilities and predicted classes
-        prediction_proba = clf.predict_proba(X_test[features])
-        y_pred = clf.predict(X_test[features])  # as integers
-        print(y_pred)
-        y_pred_labeled = [labels[i] for i in y_pred]
+        # Train expert classifiers for each cancer type
+        for i in range(len(labels) - 1):
+            expert = RandomForestClassifier(n_estimators=args.number_trees, criterion='gini', class_weight=cw)
+            print(i)
         
+            # Split cancer data into training and testing sets
+            y_train_cancer, y_test_cancer, X_train_cancer, X_test_cancer = train_test_split(new_y[new_y == labels[i + 1]], X_train[new_y == labels[i + 1]], test_size=0.33, random_state=None)
+        
+            # Split cancer data into expert and stack sets
+            y_train_expert_cancer, y_train_rest_cancer, X_train_expert_cancer, X_train_rest_cancer = train_test_split(y_train_cancer, X_train_cancer, test_size=0.5, random_state=None)
+        
+            # Train expert classifier
+            X_train_i = pd.concat([X_train_expert_hd, X_train_expert_cancer])
+            y_train_i = pd.concat([y_train_expert_hd, y_train_expert_cancer])
+            y_train_i = (y_train_i == "healthy_plasma").astype(int)
+            expert.fit(X_train_i[features], y_train_i)
+        
+            # Store expert classifier
+            classifiers.append((labels[i + 1], expert))
+        
+            # Store cancer data for stack training
+            X_stack_cancer_train = pd.concat([X_stack_cancer_train, X_train_rest_cancer])
+            y_stack_cancer_train = pd.concat([y_stack_cancer_train, y_train_rest_cancer])
+            X_stack_cancer_test = pd.concat([X_stack_cancer_test, X_test_cancer])
+            y_stack_cancer_test = pd.concat([y_stack_cancer_test, y_test_cancer])
+       
+       # Consequently, every non seen in training K type is added to test set (by blind test or due to minimumKsample2beInTrain)
+        if minimumKsample2beInTrain > 0 and len(rejected_label) > 0 :
+            for label in rejected_label :
+                X_stack_cancer_test=pd.concat([X_stack_cancer_test,X_train[new_y==label]])
+                y_stack_cancer_test=pd.concat([y_stack_cancer_test,new_y[new_y==label]])
+        if blind_size > 0 :
+            for drop_i in drop_index :
+                X_stack_cancer_test=pd.concat([X_stack_cancer_test,X_train[new_y==drop_i]])
+                y_stack_cancer_test=pd.concat([y_stack_cancer_test,new_y[new_y==drop_i]])
+
+        
+        # Train stacked classifier
+        stack = StackingClassifier(classifiers, RandomForestClassifier(n_estimators=args.number_trees, criterion='gini'), passthrough=True, stack_method="predict_proba", cv="prefit")
+        X_train_stack = pd.concat([X_train_expert_hd, X_stack_cancer_train])
+        y_train_stack = pd.concat([y_train_expert_hd, y_stack_cancer_train])
+        y_train_stack = (y_train_stack == "healthy_plasma").astype(int)
+        stack.fit(X_train_stack[features], y_train_stack)
+        
+        # Get prediction probabilities and predicted classes
+        X_test = pd.concat([X_test_hd, X_stack_cancer_test])
+        y_test = pd.concat([y_test_hd, y_stack_cancer_test])
+        y_test = (y_test == "healthy_plasma").astype(int)
+        prediction_proba = stack.predict_proba(X_test[features])
+        y_pred = stack.predict(X_test[features])  # as integers
+        y_pred_labeled = np.where(y_pred, 'healthy_plasma', 'cancer_plasma')  # as labels
+                
         for i, pred in enumerate(prediction_proba):
             sample = X_test.iloc[i].loc['sample']
-            for j, label in enumerate(labels):
-                d_predictions[sample][f'proba_{label}'] += pred[j]
+            
+            d_predictions[sample][f'proba_{labelsHD_Cancer[1]}_run_{run_i}'] = pred[0]
+            d_predictions[sample][f'proba_{labelsHD_Cancer[0]}_run_{run_i}'] = pred[1]
+    
+            
             d_predictions[sample][f'pred_{y_pred_labeled[i]}'] += 1
             d_predictions[sample]['n'] += 1
-        
-            for j, label in enumerate(labels):
-                f_predictions[sample][f'proba_{label}_run_{run_i}'] = pred[j]
+  
+    
+            f_predictions[sample][f'proba_{labelsHD_Cancer[1]}_run_{run_i}'] = pred[0]
+            f_predictions[sample][f'proba_{labelsHD_Cancer[0]}_run_{run_i}'] = pred[1]
+    
 
-
-        # get features importance
-        feature_importances = clf.feature_importances_
-        ranks = pd.factorize(-feature_importances, sort=True)[0] + 1
-        for i in range(len(features)):
-            d_features_imp[features[i]]["scores"].append(feature_importances[i])
-            d_features_imp[features[i]]["ranks"].append(ranks[i])
-
-        # get "single" roc curve infos and precision recall
         accuracies.append(accuracy_score(y_test, y_pred))
         f1s.append(f1_score(y_test, y_pred, average = 'weighted'))
-        if n_class == 2:
-
-            fpr, tpr, _ = roc_curve(y_test, prediction_proba[:, 1], pos_label=1) # tpr = sensitivity = recall / fpr = specificity
-            interp_tpr = np.interp(mean_fpr, fpr, tpr)
-            interp_tpr[0] = 0.0
-            tprs[0].append(interp_tpr)
-            roc_aucs[0].append(auc(fpr, tpr))
-
-            precision, recall, _ = precision_recall_curve(y_test, prediction_proba[:, 1], pos_label=1) # recall = tpr = sensitivity / precision = tp/(fp+tp)
-            interp_recall = np.interp(mean_fpr, precision, recall)
-            interp_recall[0] = 1.0
-            recalls[0].append(interp_recall)
-            pr_aucs[0].append(auc(recall,precision))
-
-        else:
-
-            for i in range(n_class):
-
-                fpr, tpr, _ = roc_curve(y_test, prediction_proba[:, i], pos_label=i)
-                interp_tpr = np.interp(mean_fpr, fpr, tpr)
-                interp_tpr[0] = 0.0
-                tprs[i].append(interp_tpr)
-                roc_aucs[i].append(auc(fpr, tpr))
-
-                precision, recall, _ = precision_recall_curve(y_test, prediction_proba[:, i], pos_label=i)
-                interp_recall = np.interp(mean_fpr, precision, recall)
-                interp_recall[0] = 1.0
-                recalls[i].append(interp_recall)
-                pr_aucs[i].append(auc(recall,precision))
-
-    # end of multiple runs
+       
+    
+        fpr, tpr, _ = roc_curve(y_test, prediction_proba[:, 1], pos_label=1) # tpr = sensitivity = recall / fpr = specificity
+        interp_tpr = np.interp(mean_fpr, fpr, tpr)
+        interp_tpr[0] = 0.0
+        tprs[0].append(interp_tpr)
+        roc_aucs[0].append(auc(fpr, tpr))
+    
+        precision, recall, _ = precision_recall_curve(y_test, prediction_proba[:, 1], pos_label=1) # recall = tpr = sensitivity / precision = tp/(fp+tp)
+        interp_recall = np.interp(mean_fpr, precision, recall)
+        interp_recall[0] = 1.0
+        recalls[0].append(interp_recall)
+        pr_aucs[0].append(auc(recall,precision))
+    
+       # end of multiple runs
 
     # print classification scores
-    #print_scores_to_csv(accuracies, f1s, tprs, recalls, mean_fpr, roc_aucs, pr_aucs, labels, output_dir)
+    #print_scores_to_csv(accuracies, f1s, tprs, recalls, mean_fpr, roc_aucs, pr_aucs, labelsHD_Cancer, output_dir)
 
     # print prediction results
-    print_predictions_to_csv(d_predictions, labels, output_dir)
+    print_predictions_to_csv(d_predictions, labelsHD_Cancer, output_dir)
 
     # print full prediction results
     print_full_predictions_to_csv(f_predictions, output_dir)
     # print blind test
     if blind_size > 0 :
         print_blind_test_to_csv(blind_test,output_dir)
-
-    # print features importance results
-   # print_importances_to_csv(d_features_imp, output_dir)
-
     # print sensitivity/specificity
-    print_sensitivity_specificity_table(tprs,labels, output_dir)
+    print_sensitivity_specificity_table(tprs,labelsHD_Cancer, output_dir)
 
     # plot "mean" ROC curve
-    plot_roc_curve(tprs, mean_fpr, roc_aucs, labels, output_dir, color_table_path)
+    plot_roc_curve(tprs, mean_fpr, roc_aucs, labelsHD_Cancer, output_dir, color_table_path)
 
     # plot "mean" PR curve
-    plot_pr_curve(recalls, mean_fpr, pr_aucs, labels, output_dir, color_table_path)
+    plot_pr_curve(recalls, mean_fpr, pr_aucs, labelsHD_Cancer, output_dir, color_table_path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-d","--discovery_set_file", type=str, default=None, help="input cg_methyl/haplotypes data file for discovery training")
-    parser.add_argument("-v","--validation_set_file", type=str, default=None, help="input cg_methyl/haplotypes data file for validation")
     parser.add_argument("-r", "--runs", type=int, default=5000, help="number of runs")
     parser.add_argument("-t", "--number_trees", type=int, default=300, help="number of trees in the RF")
-
-    parser.add_argument("-b", "--balance_method", type=str, default=None, help="balancing method for imbalanced classes [undersampling, oversampling, class_weight, None]")
+    parser.add_argument("-m", "--model_meta", type=str, default=None, help="Additionaly to cancer types expert add one or more model training on metastatic status. Binary: add a m0 vs HD and a m+ vs HD models. multiclass: add a multiclas HD vs M0 vs M+ model. None for no additional model ")
+    parser.add_argument("-s", "--true_split_expert", type=bool, default=False, help="Do expert cancer types models learn on half or all of cancer. ")
     parser.add_argument("-o", "--output_dir", type=str, default=None, help="output directory")
     parser.add_argument("-c","--color_table_path", type=str, default=None, help="color table")
-    parser.add_argument("-s","--test_data_size", type=float, default=0.4, help="size of training set. Could be float for proportion or int for exact number of samples")
     parser.add_argument("-z","--blind_size",type=int,default=0,help="number of cancer types non seen in training set")
     parser.add_argument("-N","--minimumKsample2beInTrain",type=int,default=0,help="minimum amount of sample for a cancer type/stage to be accepted in train set.")
-    parser.add_argument("-F","--force_binarization",type=bool,default=False,help="Force the script to work as binary classification  even if there is more than 2 class")
+
+
     args = parser.parse_args()
 
     if not args.discovery_set_file:
-        print("Testing set is optional but a training set is required!")
+        print("a training set is required!")
         exit(1)
 
-    if args.validation_set_file == "None":
-        args.validation_set_file = None
+
+
 
     if args.color_table_path == "None":
         args.color_table_path = None
 
-    if args.balance_method != "undersampling" and args.balance_method != "oversampling" and args.balance_method != "class_weight" and args.balance_method !="fakeDiscovery" and args.balance_method != "None":
-        print("Invalid balance method. Choose between undersampling, oversampling, class_weight, or None.")
-        exit(1)
 
-    print(f"Classification has been run with the following arguments:\n- Training set: {args.discovery_set_file}\n- Testing set: {args.validation_set_file}\n- Number of runs: {args.runs}\n- Number of trees: {args.number_trees}\n- Balance method: {args.balance_method}\n- Ouput directory: {args.output_dir}\n- Color table: {args.color_table_path}\n")
+    print(f"Classification has been run with the following arguments:\n- Training set: {args.discovery_set_file}\n- Number of runs: {args.runs}\n- Number of trees: {args.number_trees}\n- Ouput directory: {args.output_dir}\n- Color table: {args.color_table_path}\n")
 
-    run_classification(discovery_set_file=args.discovery_set_file, validation_set_file=args.validation_set_file, output_dir=args.output_dir, runs=args.runs, balance_method=args.balance_method, color_table_path=args.color_table_path,blind_size=args.blind_size,minimumKsample2beInTrain=args.minimumKsample2beInTrain)
+    run_classification(discovery_set_file=args.discovery_set_file, output_dir=args.output_dir, runs=args.runs, color_table_path=args.color_table_path, blind_size=args.blind_size,minimumKsample2beInTrain=args.minimumKsample2beInTrain)
+
