@@ -20,13 +20,21 @@ import math # for CI
 from scipy import stats
 # GLOBAL VARIABLES
 
-TEST_DATASET_SIZE = .4
 FIG_DPI = 300
 
 # FUNCTIONS
 
 def compute_confidence_intervals(arr, confidence_level=0.95):
-    """Expects a list of either numpy arrays or numpy float64."""
+    """
+    Compute the confidence intervals for a given array of values.
+
+    Parameters:
+    arr (list or numpy array): The input array of values.
+    confidence_level (float, optional): The desired confidence level. Defaults to 0.95.
+
+    Returns:
+    tuple: A tuple containing the lower and upper bounds of the confidence interval.
+    """
     # get the z score value to compute the confidence interval
     alpha=1-confidence_level 
     z_score=stats.norm.ppf(1-alpha/2)
@@ -55,6 +63,14 @@ def compute_confidence_intervals(arr, confidence_level=0.95):
         return (ci_lowers, ci_uppers)
 
 def print_sensitivity_specificity_table(tprs, labels, output_dir):
+    """
+ Print a table of sensitivity and specificity values to a CSV file.
+
+ Parameters:
+ tprs (list): A list of true positive rates.
+ labels (list): A list of labels corresponding to the true positive rates.
+ output_dir (str): The directory where the output CSV file will be written.
+ """
     with open(f'{output_dir}/sensitivity_specificity.csv', 'w') as f:
         f.write(f"biological_class,specificity,sensitivity,sensitivity_95CI_lower,sensitivity_95CI_upper\n")
 
@@ -72,12 +88,22 @@ def print_sensitivity_specificity_table(tprs, labels, output_dir):
                 f.write(f"{label},{(100 - percent) / 100},{mean_tpr[percent]},{tprs_lower[percent]},{tprs_upper[percent]}\n")
 
 def print_scores_to_csv(accuracies, f1s, tprs, recalls, mean_fpr, roc_aucs, pr_aucs, labels, output_dir):
+    """
+ Print prediction results to a CSV file.
+
+ Parameters:
+ d_predictions (dict): A dictionary of prediction results.
+ labels (list): A list of labels corresponding to the prediction results.
+ output_dir (str): The directory where the output CSV file will be written.
+ """
     with open(f'{output_dir}/scores.csv', 'w') as f:
         header = "metric,score,lower_ci,upper_ci\n"
         f.write(header)
         ## accuracy
         accuracy = np.mean(accuracies)
         ci = compute_confidence_intervals(accuracies)
+        print(accuracies)
+        print(ci)
         f.write(f"accuracy,{accuracy},{ci[0]},{ci[1]}\n")
         ## f1 score
         f1 = np.mean(f1s)
@@ -101,6 +127,14 @@ def print_scores_to_csv(accuracies, f1s, tprs, recalls, mean_fpr, roc_aucs, pr_a
             f.write(f"PR AUC {label},{mean_auc},{ci[0]},{ci[1]}\n")
 
 def print_predictions_to_csv(d_predictions, labels, output_dir):
+    """
+    Print mean prediction results to a CSV file.
+    
+    Parameters:
+    d_predictions (dict): A dictionary of prediction results.
+    labels (list): A list of labels corresponding to the prediction results.
+    output_dir (str): The directory where the output CSV file will be written.
+    """
     # compute mean
     for sample in d_predictions:
         for j in range(len(labels.unique())):
@@ -124,11 +158,25 @@ def print_predictions_to_csv(d_predictions, labels, output_dir):
             f.write(line)
 
 def print_full_predictions_to_csv(f_predictions, output_dir):
+    """
+    Print the prediction results of all of the runs to a CSV file.
+
+    Parameters:
+    f_predictions (dict): A dictionary of full prediction results.
+    output_dir (str): The directory where the output CSV file will be written.
+    """    
     # print
     full_data=pd.DataFrame(f_predictions).T
     full_data.to_csv(f'{output_dir}/full_predictions.csv',index=False)
 
 def print_importances_to_csv(d_features_imp, output_dir):
+    """
+    Print importances of the classification features to a CSV file
+
+Parameters:
+d_features_imp (dict): A dictionary with the different scores by a key that is the features
+output_dir (str): The directory where the output file  will be written.
+"""
     # compute mean
     for feature in d_features_imp.keys():
         d_features_imp[feature]["mean"] = np.mean(d_features_imp[feature]["scores"])
@@ -149,6 +197,17 @@ def print_importances_to_csv(d_features_imp, output_dir):
             f.write(line)
 
 def plot_roc_curve(tprs, mean_fpr, aucs, labels, output_dir, color_table_path):
+    """
+Plot the ROC curve.
+
+Parameters:
+tprs (list): A list of true positive rates.
+mean_fpr (numpy array): The mean false positive rate.
+aucs (list): A list of AUC values.
+labels (list): A list of labels corresponding to the ROC curve.
+output_dir (str): The directory where the output plot will be written.
+color_table_path (str): The path to the color table CSV file.
+"""
 
     fig, ax = plt.subplots(figsize=(7, 6.5), constrained_layout=True)
     ax.plot([0, 1], [0, 1], linestyle="--", lw=2, color="r", label="Chance", alpha=0.8)
@@ -217,7 +276,17 @@ def plot_roc_curve(tprs, mean_fpr, aucs, labels, output_dir, color_table_path):
     plt.savefig(os.path.join(output_dir, "roc_curve_ci.png"), dpi=FIG_DPI)
 
 def plot_pr_curve(recalls, mean_fpr, aucs, labels, output_dir, color_table_path):
+    """
+    Plot the Presicion-Recall curve.
 
+    Parameters:
+    recalls (list): A list of recall values.
+    mean_fpr (numpy array): The mean false positive rate.
+    aucs (list): A list of AUC values.
+    labels (list): A list of labels corresponding to the PR curve.
+    output_dir (str): The directory where the output plot will be written.
+    color_table_path (str): The path to the color table CSV file.
+    """
     fig, ax = plt.subplots(figsize=(7, 6.5), constrained_layout=True)
     ax.plot([0, 1], [0,0], linestyle="--", lw=2, color="r", label="Chance", alpha=0.8)
 
@@ -286,7 +355,16 @@ def plot_pr_curve(recalls, mean_fpr, aucs, labels, output_dir, color_table_path)
 
 def run_classification(discovery_set_file, validation_set_file, output_dir, runs, balance_method, color_table_path):
     """
-    data_file must be a csv with control class (e.g. healthy plasma) before
+    Run the classification pipeline.
+
+   Parameters:
+   discovery_set_file (str): The path to the discovery set CSV file.
+   validation_set_file (str): The path to the validation set CSV file.
+   output_dir (str): The directory where the output files will be written.
+   runs (int): The number of runs to perform.
+   color_table_path (str): The path to the color table CSV file.
+    
+   WARNING: both data_file must be a csv with control class (e.g. healthy plasma) before
     case class (e.g. ovarian cancer plasma) in order to have correct tn, fp,
     fn, tp order (see sklearn confusion matrix documentation).
     """
@@ -356,7 +434,7 @@ def run_classification(discovery_set_file, validation_set_file, output_dir, runs
 
     # Create a random forest classifier
     cw = "balanced_subsample" if balance_method=="class_weight" else None
-    clf = RandomForestClassifier(n_estimators=300, criterion='gini',class_weight=cw)
+    clf = RandomForestClassifier(n_estimators=args.number_trees, criterion='gini',class_weight=cw)
 
     # Multiple runs
 
@@ -369,10 +447,15 @@ def run_classification(discovery_set_file, validation_set_file, output_dir, runs
                 new_data = data
                 new_y = y
             # split train/test sets
-            X_train, X_test, y_train, y_test = train_test_split(new_data, new_y, test_size=TEST_DATASET_SIZE, stratify=new_y)
+            X_train, X_test, y_train, y_test = train_test_split(new_data, new_y, test_size=args.test_data_size, stratify=new_y)
         else:
             if balance_method=="undersampling":
                 new_data, new_y = RandomUnderSampler(random_state=run_i).fit_resample(discovery_data, y)
+            elif balance_method=="fakeDiscovery":
+                new_data, dump_x_test, new_y, dump_y_test=train_test_split(discovery_data, y, test_size=args.test_data_size, stratify=y,random_state=run_i)
+                print(new_data.shape)
+                print(data.shape)
+
             else:
                 new_data = discovery_data
                 new_y = y
@@ -383,20 +466,21 @@ def run_classification(discovery_set_file, validation_set_file, output_dir, runs
 
         # training
         clf.fit(X_train[features], y_train)
-
         # get prediction probabilities and predicted classes
         prediction_proba = clf.predict_proba(X_test[features])
-        y_pred = clf.predict(X_test[features]) # as integers
-        y_pred_labeled = labels[y_pred] # as labels
+        y_pred = clf.predict(X_test[features])  # as integers
+        y_pred_labeled = labels[y_pred]  # as labels
+        
         for i, pred in enumerate(prediction_proba):
             sample = X_test.iloc[i].loc['sample']
-            for j in range(n_class):
-                d_predictions[sample][f'proba_{labels[j]}'] += pred[j]
+            for j, label in enumerate(labels):
+                d_predictions[sample][f'proba_{label}'] += pred[j]
             d_predictions[sample][f'pred_{y_pred_labeled[i]}'] += 1
             d_predictions[sample]['n'] += 1
+        
+            for j, label in enumerate(labels):
+                f_predictions[sample][f'proba_{label}_run_{run_i}'] = pred[j]
 
-            f_predictions[sample][f'proba_{labels[0]}_run_{run_i}'] = pred[0]
-            f_predictions[sample][f'proba_{labels[1]}_run_{run_i}'] = pred[1]
 
         # get features importance
         feature_importances = clf.feature_importances_
@@ -466,9 +550,12 @@ if __name__ == '__main__':
     parser.add_argument("-d","--discovery_set_file", type=str, default=None, help="input cg_methyl/haplotypes data file for discovery training")
     parser.add_argument("-v","--validation_set_file", type=str, default=None, help="input cg_methyl/haplotypes data file for validation")
     parser.add_argument("-r", "--runs", type=int, default=5000, help="number of runs")
+    parser.add_argument("-t", "--number_trees", type=int, default=300, help="number of trees in the RF")
+
     parser.add_argument("-b", "--balance_method", type=str, default=None, help="balancing method for imbalanced classes [undersampling, oversampling, class_weight, None]")
     parser.add_argument("-o", "--output_dir", type=str, default=None, help="output directory")
     parser.add_argument("-c","--color_table_path", type=str, default=None, help="color table")
+    parser.add_argument("-s","--test_data_size", type=float, default=0.4, help="size of training set. Could be float for proportion or int for exact number of samples")
     args = parser.parse_args()
 
     if not args.discovery_set_file:
@@ -481,10 +568,10 @@ if __name__ == '__main__':
     if args.color_table_path == "None":
         args.color_table_path = None
 
-    if args.balance_method != "undersampling" and args.balance_method != "oversampling" and args.balance_method != "class_weight" and args.balance_method != "None":
+    if args.balance_method != "undersampling" and args.balance_method != "oversampling" and args.balance_method != "class_weight" and args.balance_method !="fakeDiscovery" and args.balance_method != "None":
         print("Invalid balance method. Choose between undersampling, oversampling, class_weight, or None.")
         exit(1)
 
-    print(f"Classification has been run with the following arguments:\n- Training set: {args.discovery_set_file}\n- Testing set: {args.validation_set_file}\n- Number of runs: {args.runs}\n- Balance method: {args.balance_method}\n- Ouput directory: {args.output_dir}\n- Color table: {args.color_table_path}\n")
+    print(f"Classification has been run with the following arguments:\n- Training set: {args.discovery_set_file}\n- Testing set: {args.validation_set_file}\n- Number of runs: {args.runs}\n- Number of trees: {args.number_trees}\n- Balance method: {args.balance_method}\n- Ouput directory: {args.output_dir}\n- Color table: {args.color_table_path}\n")
 
     run_classification(discovery_set_file=args.discovery_set_file, validation_set_file=args.validation_set_file, output_dir=args.output_dir, runs=args.runs, balance_method=args.balance_method, color_table_path=args.color_table_path)
