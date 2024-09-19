@@ -119,3 +119,6 @@ python3 ~/proudhon_lab/psl1_meth/scripts/5_classifier/extract_features_importanc
 
 python3 ~/proudhon_lab/psl1_meth/scripts/5_classifier/extract_features_importance.py -i  /scratch/kdasilva/20230612_classic_classifications/validation/results/ -o /scratch/kdasilva/20230612_classic_classifications/validation.features_importance_summary.csv
 ```
+
+## Stack and blind models
+Stacked and blind models ( a cancer subtype or type is removed each run to the testing set) are in the stack_blind brach on this repo.
